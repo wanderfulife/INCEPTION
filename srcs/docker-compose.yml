@@ -1,19 +1,32 @@
+# Specifies the Docker Compose file format version.
 version: '3.8'
 
+# Defines the different services (containers) that make up the application.
 services:
+  # The database service using MariaDB.
   mariadb:
+    # Sets a custom name for the container.
     container_name: mariadb
+    # Configuration for building the Docker image.
     build:
+      # The build context is the directory where the Dockerfile is located.
       context: ./requirements/mariadb
+      # Specifies the name of the Dockerfile.
       dockerfile: Dockerfile
+    # A name for the image that will be built.
     image: inception-mariadb
+    # Loads environment variables from the .env file in this directory.
     env_file: .env
+    # Mounts the 'db-data' volume to the standard MariaDB data directory.
     volumes:
       - db-data:/var/lib/mysql
+    # Connects the container to our custom bridge network.
     networks:
       - inception-network
+    # Policy to automatically restart the container unless it was manually stopped.
     restart: unless-stopped
 
+  # The WordPress service with PHP-FPM.
   wordpress:
     container_name: wordpress
     build:
@@ -21,14 +34,17 @@ services:
       dockerfile: Dockerfile
     image: inception-wordpress
     env_file: .env
+    # Ensures that the 'mariadb' service is started before this one.
     depends_on:
       - mariadb
+    # Mounts the 'wp-data' volume to the web root directory.
     volumes:
       - wp-data:/var/www/html
     networks:
       - inception-network
     restart: unless-stopped
 
+  # The web server service using NGINX.
   nginx:
     container_name: nginx
     build:
@@ -38,25 +54,34 @@ services:
     env_file: .env
     depends_on:
       - wordpress
+    # Maps port 443 on the host machine to port 443 in the container for HTTPS traffic.
     ports:
       - "443:443"
+    # Mounts the 'wp-data' volume so NGINX can serve static files directly.
     volumes:
       - wp-data:/var/www/html
     networks:
       - inception-network
     restart: unless-stopped
 
+# Defines the network for communication between containers.
 networks:
   inception-network:
+    # Uses the standard bridge driver for a private network.
     driver: bridge
 
+# Defines the volumes for persistent data storage.
 volumes:
+  # Volume for the MariaDB database files.
   db-data:
     driver: local
     driver_opts:
       type: none
+      # 'o: bind' mounts a specific directory from the host.
       o: bind
+      # The absolute path on the host machine to use for the volume.
       device: /workspaces/INCEPTION/data/mariadb
+  # Volume for the WordPress website files.
   wp-data:
     driver: local
     driver_opts:
