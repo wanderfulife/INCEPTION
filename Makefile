@@ -23,4 +23,4 @@ clean:
 	# --rmi all removes all images used by the services.
 	docker-compose -f srcs/docker-compose.yml down -v --rmi all
 	# Deletes the contents of the local data directories to ensure a fresh start.
-	rm -rf data/mariadb/* data/wordpress/*
+	sudo rm -rf data/mariadb/* data/wordpress/*
