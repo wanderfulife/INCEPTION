@@ -1,0 +1,119 @@
+# Define the services that make up the application
+services:
+  # MariaDB service - Database server for WordPress
+  mariadb:
+      # Set container name to 'mariadb' for easy identification
+      container_name: mariadb
+      # Base image name (will be built from Dockerfile)
+      image: mariadb
+      # Connect to the inception network for inter-service communication
+      networks:
+        - inception            
+      # Build configuration - specifies where to find build context and Dockerfile
+      build: 
+        # Build context directory containing the Dockerfile
+        context: requirements/mariadb  
+        # Name of the Dockerfile to use (default is 'Dockerfile')
+        dockerfile: Dockerfile
+      # Load environment variables from .env file
+      env_file: .env
+      # Mount volume for persistent database storage
+      volumes:
+        - mariadb:/var/lib/mysql
+      # Restart policy - restart only on failure
+      restart: on-failure   
+      # Expose port 3306 internally (not published to host)
+      expose:
+        - "3306"
+
+  # Nginx service - Web server with SSL/TLS support
+  nginx:
+      # Set container name to 'nginx' for easy identification
+      container_name: nginx
+      # Base image name (will be built from Dockerfile)
+      image: nginx
+      # Mount volume to access WordPress files
+      volumes:
+        - wordpress:/var/www/wordpress
+      # Connect to the inception network for inter-service communication
+      networks:
+        - inception
+      # Define dependency - nginx starts after wordpress is running
+      depends_on:              
+        - wordpress
+      # Build configuration - specifies where to find build context and Dockerfile
+      build: 
+        # Build context directory containing the Dockerfile
+        context: requirements/nginx
+        # Name of the Dockerfile to use (default is 'Dockerfile')
+        dockerfile: Dockerfile
+      # Load environment variables from .env file
+      env_file: .env
+      # Publish port 443 to host for HTTPS traffic
+      ports:
+        - "443:443"         
+      # Restart policy - restart only on failure
+      restart: on-failure    
+  
+  # WordPress service - Content management system with PHP-FPM
+  wordpress:
+      # Set container name to 'wordpress' for easy identification
+      container_name: wordpress
+      # Base image name (will be built from Dockerfile)
+      image: wordpress
+      # Load environment variables from .env file
+      env_file: .env
+      # Mount volume for persistent WordPress file storage
+      volumes:
+        - wordpress:/var/www/wordpress
+      # Connect to the inception network for inter-service communication
+      networks:
+        - inception
+      # Build configuration - specifies where to find build context and Dockerfile
+      build: 
+        # Build context directory containing the Dockerfile
+        context: requirements/wordpress
+        # Name of the Dockerfile to use (default is 'Dockerfile')
+        dockerfile: Dockerfile
+      # Define dependency - wordpress starts after mariadb is running
+      depends_on:             
+        - mariadb
+      # Restart policy - restart only on failure
+      restart: on-failure
+      # Expose port 9000 internally for PHP-FPM communication
+      expose: 
+        - "9000"
+
+# Define named volumes for persistent data storage
+volumes:
+  # WordPress volume - stores WordPress files persistently
+  wordpress:
+    # Use local driver for volume management
+    driver: local # ici nous stockons le volume en local
+    # Configuration options for the local driver
+    driver_opts:
+      # Use 'none' type for bind mount
+      type: 'none'                   # aucun type spécifique
+      # Bind mount options
+      o: 'bind'
+      # Path to the bind mount on the host system (uses environment variable)
+      device: '${HOME}/data/wordpress'     #Utilise une variable d'environnement
+  # MariaDB volume - stores database files persistently
+  mariadb:
+    # Use local driver for volume management
+    driver: local
+    # Configuration options for the local driver
+    driver_opts:
+      # Use 'none' type for bind mount
+      type: 'none' 
+      # Bind mount options
+      o: 'bind'                     # Les Bind Mounts sont des volumes qui se montent sur un chemin d'accès à l'hôte, et ils peuvent être modifiés par d'autres processus en dehors de docker.
+      # Path to the bind mount on the host system (uses environment variable)
+      device: '${HOME}/data/mariadb'      #Utilise une variable d'environnement
+
+# Define custom networks for container communication
+networks:
+  # Inception network - allows containers to communicate privately
+  inception:
+    # Use bridge driver to create an internal network
+    driver: bridge # indique a Docker d'installer automatiquement des regles qui permettront aux 3 containers de communiquer entre eux en bridge
